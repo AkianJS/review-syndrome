@@ -29,64 +29,47 @@ async function handler(
   const revisedFields = resource.revisedFields ?? {};
 
   // Determine trigger type and validate
-  let triggerType: "created" | "updated" | "manual";
+  let triggerType: "created" | "updated";
 
   if (eventType === "workitem.created") {
-    // Original flow: new bug created
-    const workItemType = fields["System.WorkItemType"];
-    if (workItemType !== "Bug") {
-      logger.info(`Ignoring work item type: ${workItemType}`);
-      return { status: 200, body: "Work item type not handled" };
+    // New work item created — only process if it has the ai-fix tag
+    const tags: string = fields["System.Tags"] ?? "";
+    if (!tags.split(";").map((t: string) => t.trim().toLowerCase()).includes("ai-fix")) {
+      logger.info("Work item created without ai-fix tag, ignoring");
+      return { status: 200, body: "Tag ai-fix not present" };
     }
     triggerType = "created";
   } else if (eventType === "workitem.updated") {
-    // Re-trigger: bug was updated with new info, or tag was added
-    const workItemType =
-      fields["System.WorkItemType"] ??
-      resource.revision?.fields?.["System.WorkItemType"];
-    if (workItemType !== "Bug") {
-      logger.info(`Ignoring work item type: ${workItemType}`);
-      return { status: 200, body: "Work item type not handled" };
-    }
-
-    // Check for manual trigger via tag
+    // Updated work item — process if it has the ai-fix tag
     const tags: string = fields["System.Tags"] ?? resource.revision?.fields?.["System.Tags"] ?? "";
-    if (tags.split(";").map((t: string) => t.trim().toLowerCase()).includes("agent-fix")) {
-      triggerType = "manual";
-    } else {
-      // Check if meaningful fields changed
-      const meaningfulFields = [
-        "System.Description",
-        "Microsoft.VSTS.TCM.ReproSteps",
-        "System.Tags",
-      ];
-      const hasRelevantChange = meaningfulFields.some(
-        (f) => revisedFields[f] !== undefined
-      );
-
-      if (!hasRelevantChange) {
-        logger.info("Work item updated but no relevant fields changed");
-        return { status: 200, body: "No relevant fields changed" };
-      }
-      triggerType = "updated";
+    if (!tags.split(";").map((t: string) => t.trim().toLowerCase()).includes("ai-fix")) {
+      logger.info("Work item updated without ai-fix tag, ignoring");
+      return { status: 200, body: "Tag ai-fix not present" };
     }
+
+    // Check if meaningful fields changed (or tag was just added)
+    const meaningfulFields = [
+      "System.Description",
+      "Microsoft.VSTS.TCM.ReproSteps",
+      "System.Tags",
+    ];
+    const hasRelevantChange = meaningfulFields.some(
+      (f) => revisedFields[f] !== undefined
+    );
+
+    if (!hasRelevantChange) {
+      logger.info("Work item updated but no relevant fields changed");
+      return { status: 200, body: "No relevant fields changed" };
+    }
+    triggerType = "updated";
   } else if (eventType === "workitem.commented") {
-    // Manual trigger via comment: @agent fix this
+    // Alternative trigger via comment: @agent fix this (any work item type)
     const commentText: string = resource.text ?? resource.comment?.text ?? "";
     if (!commentText.toLowerCase().includes("@agent fix this")) {
       logger.info("Comment does not contain @agent trigger");
       return { status: 200, body: "Comment trigger not matched" };
     }
-
-    // For comment events, the work item info is nested differently
-    const workItemType =
-      fields["System.WorkItemType"] ??
-      resource.revision?.fields?.["System.WorkItemType"] ?? "";
-    if (workItemType !== "Bug") {
-      logger.info(`Ignoring work item type: ${workItemType}`);
-      return { status: 200, body: "Work item type not handled" };
-    }
-    triggerType = "manual";
+    triggerType = "updated";
   } else {
     logger.info(`Ignoring event type: ${eventType}`);
     return { status: 200, body: "Event type not handled" };
@@ -102,8 +85,8 @@ async function handler(
     return { status: 400, body: "Missing workItemId or projectName" };
   }
 
-  // Idempotency check — for updates and manual triggers, reset the job first
-  if (triggerType === "updated" || triggerType === "manual") {
+  // Idempotency check — for updates, reset the job first so it can be re-processed
+  if (triggerType === "updated") {
     try {
       await resetJob(workItemId);
       logger.info(`Reset job for re-trigger`, { workItemId, triggerType });

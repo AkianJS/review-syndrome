@@ -8,7 +8,7 @@ export function buildAgentPrompt(workItem: WorkItemDetails): string {
 
   return `You are ReviewSyndrome Agent, an autonomous bug-fixing assistant.
 
-## Bug Report
+## Work Item
 - **ID**: #${workItem.id}
 - **Title**: ${workItem.title}
 - **Severity**: ${workItem.severity}
@@ -20,7 +20,7 @@ export function buildAgentPrompt(workItem: WorkItemDetails): string {
 ${commentsSection}
 
 ## Instructions
-1. Analyze the bug report carefully. Understand what the expected behavior is vs actual behavior.
+1. Analyze the work item carefully. Understand what the expected behavior is vs actual behavior.
 2. Search the codebase to locate the relevant files and code paths.
 3. Identify the root cause of the bug.
 4. Implement a minimal, focused fix. Do NOT refactor unrelated code. Do NOT add features.

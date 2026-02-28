@@ -83,7 +83,7 @@ export async function processBugFixJob(
       await safeAddComment(
         job.workItemId,
         job.projectName,
-        `**ReviewSyndrome Agent** analyzed this bug but could not create an automated fix.\n\n**Reason:** ${truncate(agentResult.analysis, 500)}`,
+        `**ReviewSyndrome Agent** analyzed this work item but could not create an automated fix.\n\n**Reason:** ${truncate(agentResult.analysis, 500)}`,
         config
       );
       return;
@@ -99,7 +99,7 @@ export async function processBugFixJob(
       await safeAddComment(
         job.workItemId,
         job.projectName,
-        `**ReviewSyndrome Agent** analyzed this bug but determined no code changes were necessary.\n\n**Analysis:** ${truncate(agentResult.analysis, 500)}`,
+        `**ReviewSyndrome Agent** analyzed this work item but determined no code changes were necessary.\n\n**Analysis:** ${truncate(agentResult.analysis, 500)}`,
         config
       );
       return;
@@ -144,7 +144,7 @@ export async function processBugFixJob(
     await safeAddComment(
       job.workItemId,
       job.projectName,
-      `**ReviewSyndrome Agent** created PR #${prId} for this bug.\n\n**Cost:** ~$${agentResult.costUsd.toFixed(2)} | **Duration:** ${Math.round(durationMs / 1000)}s`,
+      `**ReviewSyndrome Agent** created PR #${prId} for this work item.\n\n**Cost:** ~$${agentResult.costUsd.toFixed(2)} | **Duration:** ${Math.round(durationMs / 1000)}s`,
       config
     );
   } catch (error) {

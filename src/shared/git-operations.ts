@@ -25,7 +25,12 @@ export async function cloneRepo(
   logger.info(`Cloning repo to ${workDir}`, { step: "clone" });
 
   // Inject PAT into the clone URL for authentication
-  const authedUrl = cloneUrl.replace("https://", `https://${pat}@`);
+  // Azure DevOps URLs may already contain a username (e.g. https://org@dev.azure.com/...)
+  // so we use URL parsing to replace any existing credentials cleanly
+  const parsedUrl = new URL(cloneUrl);
+  parsedUrl.username = pat;
+  parsedUrl.password = "";
+  const authedUrl = parsedUrl.toString();
 
   await withRetry(
     async () => {

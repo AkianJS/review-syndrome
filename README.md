@@ -1,11 +1,11 @@
 # ReviewSyndrome Agent
 
-Autonomous AI agent that fixes bugs from Azure DevOps work items and creates Pull Requests using Claude.
+Autonomous AI agent that fixes issues from Azure DevOps work items and creates Pull Requests using Claude.
 
-When a Bug work item is created in Azure DevOps, ReviewSyndrome automatically:
+When any work item (Bug, Issue, Task, etc.) with the `ai-fix` tag is created or updated in Azure DevOps, ReviewSyndrome automatically:
 1. Receives the webhook notification
 2. Clones the relevant repository
-3. Runs Claude AI to analyze and fix the bug
+3. Runs Claude AI to analyze and fix the issue
 4. Creates a Pull Request with the fix
 
 The PR serves as the human review gate. Developers review and merge as they would any other PR.
@@ -34,9 +34,9 @@ cd review-syndrome
 npm install
 ```
 
-### 2. Configure environment variables
+### 2. Configure local settings
 
-Create `local.settings.json` in the project root (this is what Azure Functions Core Tools reads locally). See `.env.example` for a reference of all available variables.
+Create `local.settings.json` in the project root. This is the only configuration file needed — Azure Functions Core Tools reads it automatically. No environment variables required.
 
 ```json
 {
@@ -61,7 +61,7 @@ Create a Personal Access Token at `https://dev.azure.com/{yourorg}/_usersSetting
 
 | Scope | Permission | Why |
 |-------|-----------|-----|
-| **Work Items** | Read & Write | Fetch bug details, post comments |
+| **Work Items** | Read & Write | Fetch work item details, post comments |
 | **Code** | Read & Write | Clone repos, create branches, push code |
 | **Pull Request Threads** | Read & Write | Create PRs |
 
@@ -108,9 +108,10 @@ curl -X POST http://localhost:7071/api/webhook-handler \
       "id": 123,
       "url": "https://dev.azure.com/yourorg/YourProject/_apis/wit/workitems/123",
       "fields": {
-        "System.WorkItemType": "Bug",
+        "System.WorkItemType": "Issue",
         "System.TeamProject": "YourProject",
-        "System.Title": "Null reference in login handler"
+        "System.Title": "Null reference in login handler",
+        "System.Tags": "ai-fix"
       }
     }
   }'
@@ -144,7 +145,7 @@ npm run test:watch
 
 ## Setting Up Azure DevOps Webhooks
 
-### Webhook for Bug Creation (required)
+### Webhook for Work Item Creation (required)
 
 1. Go to your Azure DevOps project
 2. Navigate to **Project Settings** > **Service Hooks**
@@ -152,21 +153,21 @@ npm run test:watch
 4. Select **Web Hooks** as the service
 5. Configure the trigger:
    - **Event**: `Work item created`
-   - **Filters**: Work Item Type = `Bug`
+   - **Filters**: none required (the handler checks for the `ai-fix` tag)
 6. Configure the action:
    - **URL**: `https://<your-function-app>.azurewebsites.net/api/webhook-handler`
    - **HTTP headers**: (none required)
 7. Click **Test** to verify, then **Finish**
 
-### Webhook for Bug Updates / Re-triggers (optional)
+### Webhook for Work Item Updates (recommended)
 
 Create another service hook:
 
 - **Event**: `Work item updated`
-- **Filters**: Work Item Type = `Bug`
+- **Filters**: none required
 - **URL**: same webhook URL
 
-This enables re-processing when a bug's description or repro steps are updated.
+This enables processing when the `ai-fix` tag is added to an existing work item, or when the description/repro steps are updated on a tagged item.
 
 ### Webhook for CI Auto-Retry (optional)
 
@@ -181,14 +182,14 @@ When a CI build fails on a `bugfix/wi-*` branch, the agent automatically retries
 
 ## Trigger Methods
 
-ReviewSyndrome can be triggered in three ways:
+ReviewSyndrome is triggered by the `ai-fix` tag. Any work item type (Bug, Issue, Task, etc.) is supported.
 
 | Method | How | Event Type |
 |--------|-----|------------|
-| **Auto (new bug)** | Create a Bug work item | `workitem.created` |
-| **Re-trigger (update)** | Edit the bug's description or repro steps | `workitem.updated` |
-| **Manual (tag)** | Add the tag `agent-fix` to any Bug work item | `workitem.updated` |
-| **Manual (comment)** | Comment `@agent fix this` on any Bug work item | `workitem.commented` |
+| **Create with tag** | Create any work item with the `ai-fix` tag | `workitem.created` |
+| **Add tag later** | Add the `ai-fix` tag to an existing work item | `workitem.updated` |
+| **Re-trigger** | Edit the description or repro steps on a tagged item | `workitem.updated` |
+| **Comment trigger** | Comment `@agent fix this` on any work item | `workitem.commented` |
 
 ---
 
@@ -232,20 +233,22 @@ If your project has multiple repositories, use `repoMapping` to map Azure DevOps
 
 ### Tiered model strategy
 
-By default, the agent uses Claude Sonnet. If Sonnet fails to fix the bug, it automatically retries with Claude Opus (more capable but more expensive). To use Opus from the start for a specific project, set `"agentModel": "claude-opus-4-6"` in the project config.
+By default, the agent uses Claude Sonnet. If Sonnet fails to fix the issue, it automatically retries with Claude Opus (more capable but more expensive). To use Opus from the start for a specific project, set `"agentModel": "claude-opus-4-6"` in the project config.
 
 ---
 
-## Environment Variables
+## Configuration Reference
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
+All settings go in `local.settings.json` (local dev) or **Application Settings** (deployed Azure Function). No standalone environment variables needed.
+
+| Setting | Required | Default | Description |
+|---------|----------|---------|-------------|
 | `AZURE_DEVOPS_ORG_URL` | Yes | — | `https://dev.azure.com/yourorg` |
 | `AZURE_DEVOPS_PAT` | Yes | — | Personal Access Token |
 | `ANTHROPIC_API_KEY` | Yes | — | Claude API key |
 | `AzureWebJobsStorage` | Yes | — | Azure Storage connection string (or `UseDevelopmentStorage=true`) |
 | `TARGET_BRANCH` | No | `main` | Default PR target branch |
-| `MAX_BUDGET_PER_BUG` | No | `2.00` | Max Claude API cost per bug (USD) |
+| `MAX_BUDGET_PER_BUG` | No | `2.00` | Max Claude API cost per work item (USD) |
 | `MAX_AGENT_TURNS` | No | `50` | Max agent reasoning turns |
 | `AGENT_MODEL` | No | `claude-sonnet-4-6` | Default Claude model |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | No | — | Enable Application Insights telemetry |
@@ -329,7 +332,7 @@ az deployment group show \
 
 ```
 Azure DevOps                    Azure Functions
-  (Bug Created) ──webhook──> [webhook-handler] ──queue──> [bug-fix-worker]
+  (ai-fix tag) ──webhook──> [webhook-handler] ──queue──> [bug-fix-worker]
                                                               │
   (Build Failed) ──webhook──> [pr-status-handler] ──queue──> [pr-retry-worker]
                                                               │
@@ -367,15 +370,15 @@ Azure DevOps                    Azure Functions
 
 ## How It Works
 
-1. A Bug work item is created in Azure DevOps
-2. The service hook sends a `workitem.created` webhook to the Function App
-3. `webhook-handler` validates the payload and enqueues a job message
+1. A work item with the `ai-fix` tag is created or updated in Azure DevOps
+2. The service hook sends a webhook to the Function App
+3. `webhook-handler` checks for the `ai-fix` tag and enqueues a job message
 4. `bug-fix-worker` picks up the message from the queue
 5. The pipeline:
-   - Fetches full bug details from Azure DevOps API
+   - Fetches full work item details from Azure DevOps API
    - Selects the correct repository (using area path mapping if configured)
    - Clones the repository
-   - Builds a structured prompt with the bug details
+   - Builds a structured prompt with the work item details
    - Runs the Claude Agent SDK with restricted tool access
    - If the agent fails with Sonnet, retries with Opus
    - If the agent makes code changes, creates a branch, commits, and pushes
@@ -400,12 +403,12 @@ Azure DevOps                    Azure Functions
 
 | Scenario | Estimated Cost |
 |----------|---------------|
-| Simple bug (Sonnet only) | ~$0.30 |
-| Complex bug (more exploration) | ~$1.05 |
+| Simple fix (Sonnet only) | ~$0.30 |
+| Complex fix (more exploration) | ~$1.05 |
 | Escalation to Opus | ~$2.00-3.00 |
-| **Budget cap per bug** | **$2.00 default** |
+| **Budget cap per work item** | **$2.00 default** |
 
-At 5 bugs/week (~20/month): **$6-20/month in AI costs**.
+At 5 work items/week (~20/month): **$6-20/month in AI costs**.
 
 ---
 
@@ -443,7 +446,7 @@ Returns aggregated metrics:
 If `APPLICATIONINSIGHTS_CONNECTION_STRING` is set, all logs, metrics, and events are sent to Application Insights. Key metrics tracked:
 
 - `processing_duration_ms` — total time from dequeue to PR creation
-- `agent_cost_usd` — Claude API cost per bug
+- `agent_cost_usd` — Claude API cost per work item
 - `agent_turns` — number of reasoning turns used
 
 Key events: `bug_received`, `bug_processing_started`, `pr_created`, `model_escalated`, `pr_retry_enqueued`.
@@ -499,7 +502,7 @@ review-syndrome/
 | `func start` fails with "no functions found" | Run `npm run build` first. Functions are loaded from `dist/` |
 | Queue messages not being processed | Ensure Azurite is running and `AzureWebJobsStorage=UseDevelopmentStorage=true` is set |
 | "Missing required environment variable" error | Check `local.settings.json` has all required values under `Values` |
-| Agent makes no changes | The bug may be too vague. Add detailed repro steps and description, then re-trigger |
+| Agent makes no changes | The work item may be too vague. Add detailed repro steps and description, then re-trigger |
 | PAT authentication fails | Verify your PAT has Code (Read & Write) and Work Items (Read & Write) scopes |
 | Webhook not firing | Verify the service hook is active in Azure DevOps Project Settings > Service Hooks |
 | Build errors with ESM imports | This project uses ES modules. Ensure `"type": "module"` is in package.json |

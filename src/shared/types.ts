@@ -3,7 +3,7 @@ export interface BugFixJob {
   projectName: string;
   organizationUrl: string;
   timestamp: string;
-  triggerType?: "created" | "updated" | "manual";
+  triggerType?: "created" | "updated";
 }
 
 export interface WorkItemDetails {

@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { TableClient, TableEntity } from "@azure/data-tables";
 import { createLogger } from "../shared/logger.js";
+import { ensureTable } from "../shared/job-tracker.js";
 
 const logger = createLogger("Dashboard");
 
@@ -35,6 +36,7 @@ async function handler(
   }
 
   try {
+    await ensureTable();
     const client = TableClient.fromConnectionString(connectionString, "bugfixjobs");
 
     const stats: DashboardStats = {

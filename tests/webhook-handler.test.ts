@@ -57,11 +57,16 @@ describe("webhook handler validation", () => {
     expect(supportedEvents).toContain(commentEvent);
   });
 
-  it("should have proper work item type check", () => {
-    const validType = "Bug";
-    const invalidType = "Task";
-    expect(validType).toBe("Bug");
-    expect(invalidType).not.toBe("Bug");
+  it("should trigger on any work item type with ai-fix tag", () => {
+    const tags = "priority; ai-fix; regression";
+    const tagList = tags.split(";").map((t) => t.trim().toLowerCase());
+    expect(tagList).toContain("ai-fix");
+  });
+
+  it("should not trigger on work items without ai-fix tag", () => {
+    const tags = "priority; regression";
+    const tagList = tags.split(";").map((t) => t.trim().toLowerCase());
+    expect(tagList).not.toContain("ai-fix");
   });
 
   it("should create BugFixJob with required fields including triggerType", () => {
@@ -76,12 +81,6 @@ describe("webhook handler validation", () => {
     expect(job.projectName).toBe("TestProject");
     expect(job.organizationUrl).toContain("dev.azure.com");
     expect(job.triggerType).toBe("created");
-  });
-
-  it("should support manual triggerType for tag-based triggers", () => {
-    const tags = "priority; agent-fix; regression";
-    const tagList = tags.split(";").map((t) => t.trim().toLowerCase());
-    expect(tagList).toContain("agent-fix");
   });
 
   it("should support manual triggerType for comment-based triggers", () => {
