@@ -1,4 +1,8 @@
 import { WorkItemDetails, PullRequestParams, Repository, Config } from "./types.js";
+import { withRetry, isRetryableHttpError } from "./retry.js";
+import { createLogger } from "./logger.js";
+
+const logger = createLogger("AzureDevOps");
 
 function buildAuthHeader(pat: string): string {
   const encoded = Buffer.from(`:${pat}`).toString("base64");
@@ -22,19 +26,28 @@ function stripHtml(html: string): string {
 }
 
 async function adoFetch(url: string, pat: string, options: RequestInit = {}): Promise<Response> {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      Authorization: buildAuthHeader(pat),
-      "Content-Type": "application/json",
-      ...options.headers,
+  return withRetry(
+    async () => {
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          Authorization: buildAuthHeader(pat),
+          "Content-Type": "application/json",
+          ...options.headers,
+        },
+      });
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`Azure DevOps API error ${response.status}: ${body}`);
+      }
+      return response;
     },
-  });
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Azure DevOps API error ${response.status}: ${body}`);
-  }
-  return response;
+    {
+      maxAttempts: 3,
+      baseDelayMs: 1000,
+      retryOn: isRetryableHttpError,
+    }
+  );
 }
 
 export async function getWorkItemDetails(
@@ -43,6 +56,7 @@ export async function getWorkItemDetails(
   config: Config
 ): Promise<WorkItemDetails> {
   const baseUrl = config.azureDevOpsOrgUrl;
+  logger.info(`Fetching work item #${workItemId}`, { workItemId, projectName, step: "getWorkItem" });
 
   // Fetch work item with all fields
   const wiUrl = `${baseUrl}/${projectName}/_apis/wit/workitems/${workItemId}?$expand=All&api-version=7.1`;
@@ -59,7 +73,7 @@ export async function getWorkItemDetails(
       (c: Record<string, any>) => stripHtml(c.text ?? "")
     );
   } catch {
-    // Comments endpoint may not exist for all work items
+    logger.warn(`Could not fetch comments for work item #${workItemId}`, { workItemId });
   }
 
   const fields = wiData.fields ?? {};
@@ -75,6 +89,7 @@ export async function getWorkItemDetails(
     comments,
     projectName,
     organizationUrl: baseUrl,
+    areaPath: fields["System.AreaPath"] ?? undefined,
   };
 }
 
@@ -82,6 +97,7 @@ export async function getRepositories(
   projectName: string,
   config: Config
 ): Promise<Repository[]> {
+  logger.info(`Listing repositories for project '${projectName}'`, { projectName, step: "getRepos" });
   const url = `${config.azureDevOpsOrgUrl}/${projectName}/_apis/git/repositories?api-version=7.1`;
   const response = await adoFetch(url, config.azureDevOpsPat);
   const data = await response.json() as Record<string, any>;
@@ -100,6 +116,12 @@ export async function createPullRequest(
   params: PullRequestParams,
   config: Config
 ): Promise<Record<string, any>> {
+  logger.info(`Creating PR for work item #${params.workItemId}`, {
+    workItemId: params.workItemId,
+    projectName,
+    step: "createPR",
+  });
+
   const url = `${config.azureDevOpsOrgUrl}/${projectName}/_apis/git/repositories/${repoId}/pullrequests?api-version=7.1`;
   const body = {
     sourceRefName: params.sourceRefName,
@@ -115,6 +137,44 @@ export async function createPullRequest(
   });
 
   return await response.json() as Record<string, any>;
+}
+
+export async function addWorkItemComment(
+  workItemId: number,
+  projectName: string,
+  comment: string,
+  config: Config
+): Promise<void> {
+  logger.info(`Adding comment to work item #${workItemId}`, { workItemId, projectName, step: "addComment" });
+
+  const url = `${config.azureDevOpsOrgUrl}/${projectName}/_apis/wit/workItems/${workItemId}/comments?api-version=7.1-preview.4`;
+  await adoFetch(url, config.azureDevOpsPat, {
+    method: "POST",
+    body: JSON.stringify({ text: comment }),
+  });
+}
+
+export async function getBuildLog(
+  projectName: string,
+  buildId: number,
+  config: Config
+): Promise<string> {
+  logger.info(`Fetching build log for build #${buildId}`, { projectName, buildId, step: "getBuildLog" });
+
+  const timelineUrl = `${config.azureDevOpsOrgUrl}/${projectName}/_apis/build/builds/${buildId}/timeline?api-version=7.1`;
+  const response = await adoFetch(timelineUrl, config.azureDevOpsPat);
+  const data = await response.json() as Record<string, any>;
+
+  // Extract error messages from failed records
+  const failedRecords = (data.records ?? []).filter(
+    (r: Record<string, any>) => r.result === "failed" || r.result === "partiallySucceeded"
+  );
+
+  const errors = failedRecords.map(
+    (r: Record<string, any>) => `[${r.name}] ${r.issues?.map((i: Record<string, any>) => i.message).join("; ") ?? "Failed"}`
+  );
+
+  return errors.join("\n") || "Build failed (no detailed error messages available)";
 }
 
 export { stripHtml, buildAuthHeader };

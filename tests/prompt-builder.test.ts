@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildAgentPrompt } from "../src/shared/prompt-builder.js";
+import { buildAgentPrompt, buildRetryPrompt } from "../src/shared/prompt-builder.js";
 import { WorkItemDetails } from "../src/shared/types.js";
 
 describe("buildAgentPrompt", () => {
@@ -63,5 +63,39 @@ describe("buildAgentPrompt", () => {
     expect(prompt).toContain("## Constraints");
     expect(prompt).toContain("Do NOT refactor unrelated code");
     expect(prompt).toContain("Keep changes as small as possible");
+  });
+});
+
+describe("buildRetryPrompt", () => {
+  const baseWorkItem: WorkItemDetails = {
+    id: 42,
+    title: "Login button crashes on click",
+    description: "The login button throws an error when clicked.",
+    reproSteps: "1. Open the app\n2. Click login\n3. See crash",
+    severity: "2 - High",
+    priority: "1",
+    systemInfo: "",
+    comments: [],
+    projectName: "MyProject",
+    organizationUrl: "https://dev.azure.com/myorg",
+  };
+
+  it("should include original bug details", () => {
+    const prompt = buildRetryPrompt(baseWorkItem, "Test failed");
+    expect(prompt).toContain("#42");
+    expect(prompt).toContain("Login button crashes on click");
+  });
+
+  it("should include CI failure context section", () => {
+    const prompt = buildRetryPrompt(baseWorkItem, "Test failed: expected 1 but got 2");
+    expect(prompt).toContain("## CI Failure Context");
+    expect(prompt).toContain("Test failed: expected 1 but got 2");
+  });
+
+  it("should include retry-specific instructions", () => {
+    const prompt = buildRetryPrompt(baseWorkItem, "Build error");
+    expect(prompt).toContain("previous fix attempt");
+    expect(prompt).toContain("CI failure log");
+    expect(prompt).toContain("Fix the issues causing CI failure");
   });
 });

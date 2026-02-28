@@ -4,7 +4,8 @@
       "WebSearch",
       "WebFetch(domain:www.npmjs.com)",
       "Bash(npx tsc:*)",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "Bash(npm install:*)"
     ]
   }
 }

@@ -34,3 +34,27 @@ ${commentsSection}
 - Do not add new dependencies unless absolutely necessary for the fix.
 - Keep changes as small as possible.`;
 }
+
+export function buildRetryPrompt(
+  workItem: WorkItemDetails,
+  ciFailureLog: string
+): string {
+  const basePrompt = buildAgentPrompt(workItem);
+
+  return `${basePrompt}
+
+## CI Failure Context
+The previous fix attempt was pushed but CI/CD checks failed. Below is the CI failure log. You must fix the issues that caused the CI failure while still addressing the original bug.
+
+### CI Failure Log
+\`\`\`
+${ciFailureLog}
+\`\`\`
+
+## Additional Instructions
+1. Review the existing changes in the working directory — they are the previous fix attempt.
+2. Analyze the CI failure log to understand what went wrong.
+3. Fix the issues causing CI failure (test failures, build errors, lint errors, etc.).
+4. Ensure your fix still addresses the original bug report above.
+5. If the CI failure reveals that the approach was wrong, revise the fix entirely.`;
+}

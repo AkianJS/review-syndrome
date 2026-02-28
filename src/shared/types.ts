@@ -3,6 +3,7 @@ export interface BugFixJob {
   projectName: string;
   organizationUrl: string;
   timestamp: string;
+  triggerType?: "created" | "updated" | "manual";
 }
 
 export interface WorkItemDetails {
@@ -16,12 +17,40 @@ export interface WorkItemDetails {
   comments: string[];
   projectName: string;
   organizationUrl: string;
+  areaPath?: string;
 }
 
 export interface AgentResult {
   success: boolean;
   analysis: string;
   costUsd: number;
+  turnsUsed: number;
+  durationMs: number;
+  modelUsed: string;
+  escalated?: boolean;
+}
+
+export interface JobRecord {
+  workItemId: number;
+  status: "in-progress" | "success" | "failure" | "no-changes";
+  startedAt: string;
+  completedAt?: string;
+  prId?: number;
+  retryCount?: number;
+}
+
+export interface ProjectConfig {
+  defaultBranch: string;
+  agentModel: string;
+  maxBudget: number;
+  maxTurns: number;
+  enabled: boolean;
+  repoMapping?: Record<string, string>;
+}
+
+export interface ProjectsConfig {
+  projects: Record<string, Partial<ProjectConfig>>;
+  globalDefaults: ProjectConfig;
 }
 
 export interface PullRequestParams {
@@ -47,4 +76,17 @@ export interface Config {
   maxBudgetPerBug: number;
   maxAgentTurns: number;
   agentModel: string;
+  repoMapping?: Record<string, string>;
+}
+
+export interface PrRetryJob {
+  workItemId: number;
+  projectName: string;
+  organizationUrl: string;
+  prId: number;
+  branchName: string;
+  repoId: string;
+  repoUrl: string;
+  ciFailureLog: string;
+  retryCount: number;
 }

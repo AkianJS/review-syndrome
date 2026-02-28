@@ -2,6 +2,10 @@ import { simpleGit, SimpleGit } from "simple-git";
 import { mkdtemp, rm } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
+import { withRetry, isRetryableGitError } from "./retry.js";
+import { createLogger } from "./logger.js";
+
+const logger = createLogger("Git");
 
 export function sanitizeBranchName(workItemId: number, title: string): string {
   const slug = title
@@ -18,11 +22,22 @@ export async function cloneRepo(
   pat: string
 ): Promise<{ workDir: string; git: SimpleGit }> {
   const workDir = await mkdtemp(join(tmpdir(), "review-syndrome-"));
+  logger.info(`Cloning repo to ${workDir}`, { step: "clone" });
 
   // Inject PAT into the clone URL for authentication
   const authedUrl = cloneUrl.replace("https://", `https://${pat}@`);
-  const git = simpleGit();
-  await git.clone(authedUrl, workDir);
+
+  await withRetry(
+    async () => {
+      const git = simpleGit();
+      await git.clone(authedUrl, workDir);
+    },
+    {
+      maxAttempts: 3,
+      baseDelayMs: 2000,
+      retryOn: isRetryableGitError,
+    }
+  );
 
   return { workDir, git: simpleGit(workDir) };
 }
@@ -32,6 +47,7 @@ export async function createBranchAndCommit(
   branchName: string,
   commitMessage: string
 ): Promise<void> {
+  logger.info(`Creating branch '${branchName}'`, { step: "branch" });
   const git = simpleGit(workDir);
   await git.checkoutLocalBranch(branchName);
   await git.add("-A");
@@ -42,8 +58,19 @@ export async function pushBranch(
   workDir: string,
   branchName: string
 ): Promise<void> {
-  const git = simpleGit(workDir);
-  await git.push("origin", branchName);
+  logger.info(`Pushing branch '${branchName}'`, { step: "push" });
+
+  await withRetry(
+    async () => {
+      const git = simpleGit(workDir);
+      await git.push("origin", branchName);
+    },
+    {
+      maxAttempts: 3,
+      baseDelayMs: 2000,
+      retryOn: isRetryableGitError,
+    }
+  );
 }
 
 export async function hasChanges(workDir: string): Promise<boolean> {
