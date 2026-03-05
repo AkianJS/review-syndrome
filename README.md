@@ -29,7 +29,7 @@ The PR serves as the human review gate. Developers review and merge as they woul
 ### 1. Clone and install
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/AkianJS/review-syndrome.git
 cd review-syndrome
 npm install
 ```
