@@ -1,10 +1,118 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import StatsBar from "../components/StatsBar.astro";
+import CostPanel from "../components/CostPanel.astro";
+import HealthBadge from "../components/HealthBadge.astro";
+import JobTable from "../components/JobTable.astro";
 ---
 
 <Layout>
-  <main>
-    <h1>ReviewSyndrome Dashboard</h1>
-    <p class="text-secondary">Coming soon.</p>
-  </main>
+  <div class="dashboard">
+    <header class="header">
+      <div class="header-left">
+        <h1 class="logo">ReviewSyndrome</h1>
+        <span class="header-sep"></span>
+        <span class="header-subtitle text-secondary">Dashboard</span>
+      </div>
+      <div class="header-right">
+        <span class="poll-indicator" id="poll-indicator">
+          <span class="poll-dot"></span>
+          <span class="text-secondary" id="last-updated">Connecting...</span>
+        </span>
+        <HealthBadge />
+      </div>
+    </header>
+
+    <main class="main">
+      <StatsBar />
+      <CostPanel />
+      <JobTable />
+    </main>
+  </div>
+
+  <script>
+    import "../components/islands/DashboardClient";
+    import "../components/islands/HealthClient";
+  </script>
 </Layout>
+
+<style>
+  .dashboard {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .logo {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .header-sep {
+    width: 1px;
+    height: 1.25rem;
+    background: var(--border);
+  }
+
+  .header-subtitle {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .poll-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+  }
+
+  .poll-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    box-shadow: 0 0 4px var(--accent-green);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  .poll-indicator:global(.poll-error) .poll-dot {
+    background: var(--accent-red);
+    box-shadow: 0 0 4px var(--accent-red);
+  }
+
+  .main {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 640px) {
+    .dashboard {
+      padding: 1rem;
+    }
+  }
+</style>
