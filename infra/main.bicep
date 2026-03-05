@@ -17,6 +17,14 @@ param azureDevOpsPat string
 @description('Anthropic API Key')
 param anthropicApiKey string
 
+@secure()
+@description('Webhook API Key (optional — leave empty to disable webhook auth)')
+param webhookApiKey string = ''
+
+@secure()
+@description('Dashboard API Key (optional — leave empty to disable dashboard auth)')
+param dashboardApiKey string = ''
+
 // Unique suffix for globally unique names
 var uniqueSuffix = uniqueString(resourceGroup().id)
 var storageAccountName = '${baseName}${take(uniqueSuffix, 8)}'
@@ -67,6 +75,8 @@ module functionApp 'modules/function-app.bicep' = {
     keyVaultUri: keyVaultName
     appInsightsConnectionString: appInsights.properties.ConnectionString
     azureDevOpsOrgUrl: azureDevOpsOrgUrl
+    enableWebhookAuth: !empty(webhookApiKey)
+    enableDashboardAuth: !empty(dashboardApiKey)
   }
 }
 
@@ -79,6 +89,8 @@ module keyVault 'modules/key-vault.bicep' = {
     functionAppPrincipalId: functionApp.outputs.principalId
     azureDevOpsPat: azureDevOpsPat
     anthropicApiKey: anthropicApiKey
+    webhookApiKey: webhookApiKey
+    dashboardApiKey: dashboardApiKey
   }
 }
 

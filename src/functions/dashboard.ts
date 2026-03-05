@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { TableClient, TableEntity } from "@azure/data-tables";
 import { createLogger } from "../shared/logger.js";
 import { ensureTable } from "../shared/job-tracker.js";
+import { validateApiKey } from "../shared/auth.js";
 
 const logger = createLogger("Dashboard");
 
@@ -26,6 +27,9 @@ async function handler(
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   logger.info("Dashboard request received");
+
+  const authResult = validateApiKey(request, "DASHBOARD_API_KEY");
+  if (authResult) return authResult;
 
   const connectionString = process.env["AzureWebJobsStorage"];
   if (!connectionString) {

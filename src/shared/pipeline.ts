@@ -13,6 +13,8 @@ import { buildAgentPrompt } from "./prompt-builder.js";
 import { runAgent } from "./agent-runner.js";
 import { markJobStarted, markJobCompleted } from "./job-tracker.js";
 import { createLogger } from "./logger.js";
+import { rm } from "fs/promises";
+import { join } from "path";
 
 const logger = createLogger("Pipeline");
 
@@ -96,7 +98,12 @@ export async function processBugFixJob(
       return;
     }
 
-    // 6. Check if agent made changes
+    // 6. Clean up downloaded images before checking for changes
+    //    Images were only needed for prompt context — they must not be committed
+    const bugInfoDir = join(workDir, ".buginfo");
+    await rm(bugInfoDir, { recursive: true, force: true }).catch(() => {});
+
+    // 6a. Check if agent made changes
     const changed = await hasChanges(workDir);
     if (!changed) {
       logger.info("Agent made no file changes", { ...props, step: "noChanges" });

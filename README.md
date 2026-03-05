@@ -145,6 +145,17 @@ npm run test:watch
 
 ## Setting Up Azure DevOps Webhooks
 
+### Securing Webhooks with API Keys
+
+All HTTP endpoints support optional API key authentication. Set `WEBHOOK_API_KEY` (for webhook endpoints) and/or `DASHBOARD_API_KEY` (for dashboard/health-check) in your app settings. When set, requests must include the key via one of:
+
+- **Header**: `X-Api-Key: <your-key>`
+- **Bearer token**: `Authorization: Bearer <your-key>`
+
+If the env var is not set, authentication is skipped (backwards-compatible).
+
+**Azure DevOps service hooks** support custom HTTP headers natively. When creating a webhook subscription, add `X-Api-Key: <your-key>` in the **HTTP headers** field.
+
 ### Webhook for Work Item Creation (required)
 
 1. Go to your Azure DevOps project
@@ -251,6 +262,8 @@ All settings go in `local.settings.json` (local dev) or **Application Settings**
 | `MAX_BUDGET_PER_BUG` | No | `2.00` | Max Claude API cost per work item (USD) |
 | `MAX_AGENT_TURNS` | No | `50` | Max agent reasoning turns |
 | `AGENT_MODEL` | No | `claude-sonnet-4-6` | Default Claude model |
+| `WEBHOOK_API_KEY` | No | — | Shared secret for webhook endpoints (auth disabled if not set) |
+| `DASHBOARD_API_KEY` | No | — | Shared secret for dashboard/health-check endpoints (auth disabled if not set) |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | No | — | Enable Application Insights telemetry |
 
 ---

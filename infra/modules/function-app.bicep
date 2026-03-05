@@ -16,6 +16,12 @@ param appInsightsConnectionString string
 @description('Azure DevOps organization URL')
 param azureDevOpsOrgUrl string
 
+@description('Whether to enable webhook API key authentication')
+param enableWebhookAuth bool = false
+
+@description('Whether to enable dashboard API key authentication')
+param enableDashboardAuth bool = false
+
 resource hostingPlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: '${functionAppName}-plan'
   location: location
@@ -27,6 +33,29 @@ resource hostingPlan 'Microsoft.Web/serverfarms@2023-12-01' = {
     reserved: true // Linux
   }
 }
+
+var baseAppSettings = [
+  { name: 'AzureWebJobsStorage', value: storageConnectionString }
+  { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
+  { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'node' }
+  { name: 'WEBSITE_NODE_DEFAULT_VERSION', value: '~20' }
+  { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
+  { name: 'AZURE_DEVOPS_ORG_URL', value: azureDevOpsOrgUrl }
+  { name: 'AZURE_DEVOPS_PAT', value: '@Microsoft.KeyVault(VaultName=${keyVaultUri};SecretName=azure-devops-pat)' }
+  { name: 'ANTHROPIC_API_KEY', value: '@Microsoft.KeyVault(VaultName=${keyVaultUri};SecretName=anthropic-api-key)' }
+  { name: 'TARGET_BRANCH', value: 'main' }
+  { name: 'MAX_BUDGET_PER_BUG', value: '2.00' }
+  { name: 'MAX_AGENT_TURNS', value: '50' }
+  { name: 'AGENT_MODEL', value: 'claude-sonnet-4-6' }
+]
+
+var webhookAuthSettings = enableWebhookAuth ? [
+  { name: 'WEBHOOK_API_KEY', value: '@Microsoft.KeyVault(VaultName=${keyVaultUri};SecretName=webhook-api-key)' }
+] : []
+
+var dashboardAuthSettings = enableDashboardAuth ? [
+  { name: 'DASHBOARD_API_KEY', value: '@Microsoft.KeyVault(VaultName=${keyVaultUri};SecretName=dashboard-api-key)' }
+] : []
 
 resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
   name: functionAppName
@@ -43,20 +72,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       functionAppScaleLimit: 5
-      appSettings: [
-        { name: 'AzureWebJobsStorage', value: storageConnectionString }
-        { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
-        { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'node' }
-        { name: 'WEBSITE_NODE_DEFAULT_VERSION', value: '~20' }
-        { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
-        { name: 'AZURE_DEVOPS_ORG_URL', value: azureDevOpsOrgUrl }
-        { name: 'AZURE_DEVOPS_PAT', value: '@Microsoft.KeyVault(VaultName=${keyVaultUri};SecretName=azure-devops-pat)' }
-        { name: 'ANTHROPIC_API_KEY', value: '@Microsoft.KeyVault(VaultName=${keyVaultUri};SecretName=anthropic-api-key)' }
-        { name: 'TARGET_BRANCH', value: 'main' }
-        { name: 'MAX_BUDGET_PER_BUG', value: '2.00' }
-        { name: 'MAX_AGENT_TURNS', value: '50' }
-        { name: 'AGENT_MODEL', value: 'claude-sonnet-4-6' }
-      ]
+      appSettings: concat(baseAppSettings, webhookAuthSettings, dashboardAuthSettings)
     }
   }
 }

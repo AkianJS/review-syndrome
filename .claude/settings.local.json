@@ -9,7 +9,9 @@
       "mcp__plugin_engram_engram__mem_save",
       "mcp__plugin_engram_engram__mem_search",
       "mcp__plugin_engram_engram__mem_get_observation",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "mcp__plugin_engram_engram__mem_update",
+      "mcp__plugin_context7_context7__query-docs"
     ]
   }
 }

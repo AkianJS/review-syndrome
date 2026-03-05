@@ -17,7 +17,7 @@ npx vitest run tests/pipeline.test.ts          # Run a single test file
 npx vitest run -t "should process bug fix"     # Run a single test by name
 ```
 
-Local dev requires Azurite running for queue/table storage emulation, and env vars in `local.settings.json` (`AZURE_DEVOPS_ORG_URL`, `AZURE_DEVOPS_PAT`, `ANTHROPIC_API_KEY`).
+Local dev requires Azurite running for queue/table storage emulation, and env vars in `local.settings.json` (`AZURE_DEVOPS_ORG_URL`, `AZURE_DEVOPS_PAT`, `ANTHROPIC_API_KEY`). Optional: `WEBHOOK_API_KEY` and `DASHBOARD_API_KEY` for API key authentication on HTTP endpoints (auth is skipped if not set).
 
 ## Architecture
 

@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext, output } from "@
 import { BugFixJob } from "../shared/types.js";
 import { isJobProcessed, resetJob } from "../shared/job-tracker.js";
 import { createLogger } from "../shared/logger.js";
+import { validateApiKey } from "../shared/auth.js";
 
 const logger = createLogger("Webhook");
 
@@ -15,6 +16,9 @@ async function handler(
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   logger.info("Webhook received from Azure DevOps");
+
+  const authResult = validateApiKey(request, "WEBHOOK_API_KEY");
+  if (authResult) return authResult;
 
   let body: Record<string, any>;
   try {

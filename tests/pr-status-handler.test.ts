@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock dependencies
+vi.mock("../src/shared/auth.js", () => ({
+  validateApiKey: vi.fn().mockReturnValue(null),
+}));
+
 vi.mock("../src/shared/job-tracker.js", () => ({
   getJobRecord: vi.fn(),
 }));

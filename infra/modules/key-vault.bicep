@@ -15,6 +15,14 @@ param azureDevOpsPat string
 @description('Anthropic API Key')
 param anthropicApiKey string
 
+@secure()
+@description('Webhook API Key for authenticating incoming webhooks')
+param webhookApiKey string = ''
+
+@secure()
+@description('Dashboard API Key for authenticating dashboard/health-check requests')
+param dashboardApiKey string = ''
+
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: keyVaultName
   location: location
@@ -53,6 +61,22 @@ resource secretAnthropicKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   name: 'anthropic-api-key'
   properties: {
     value: anthropicApiKey
+  }
+}
+
+resource secretWebhookApiKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(webhookApiKey)) {
+  parent: keyVault
+  name: 'webhook-api-key'
+  properties: {
+    value: webhookApiKey
+  }
+}
+
+resource secretDashboardApiKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(dashboardApiKey)) {
+  parent: keyVault
+  name: 'dashboard-api-key'
+  properties: {
+    value: dashboardApiKey
   }
 }
 

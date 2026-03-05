@@ -52,8 +52,8 @@ export async function runAgent(
       if ("result" in message) {
         analysis = message.result;
       }
-      if ("costUsd" in message && typeof message.costUsd === "number") {
-        costUsd = message.costUsd;
+      if ("total_cost_usd" in message && typeof message.total_cost_usd === "number") {
+        costUsd = message.total_cost_usd;
       }
       turnsUsed++;
     }

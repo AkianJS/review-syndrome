@@ -1,4 +1,5 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { validateApiKey } from "../shared/auth.js";
 
 interface HealthCheckResult {
   status: "healthy" | "unhealthy";
@@ -9,13 +10,16 @@ async function handler(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  const authResult = validateApiKey(request, "DASHBOARD_API_KEY");
+  if (authResult) return authResult;
+
   const result: HealthCheckResult = {
     status: "healthy",
     checks: {},
   };
 
   // Check required environment variables
-  const requiredVars = ["AZURE_DEVOPS_ORG_URL", "AZURE_DEVOPS_PAT", "ANTHROPIC_API_KEY"];
+  const requiredVars = ["AZURE_DEVOPS_ORG_URL", "AZURE_DEVOPS_PAT", "ANTHROPIC_API_KEY", "WEBHOOK_API_KEY"];
   for (const varName of requiredVars) {
     const value = process.env[varName];
     if (value && value.length > 0) {

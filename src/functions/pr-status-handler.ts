@@ -4,6 +4,7 @@ import { getJobRecord } from "../shared/job-tracker.js";
 import { getBuildLog } from "../shared/azure-devops-client.js";
 import { loadConfig } from "../shared/config.js";
 import { createLogger } from "../shared/logger.js";
+import { validateApiKey } from "../shared/auth.js";
 
 const logger = createLogger("PrStatus");
 
@@ -19,6 +20,9 @@ async function handler(
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   logger.info("Build status webhook received");
+
+  const authResult = validateApiKey(request, "WEBHOOK_API_KEY");
+  if (authResult) return authResult;
 
   let body: Record<string, any>;
   try {

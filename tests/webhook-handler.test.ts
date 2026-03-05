@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { extractOrgUrl } from "../src/functions/webhook-handler.js";
 
 // Mock dependencies
+vi.mock("../src/shared/auth.js", () => ({
+  validateApiKey: vi.fn().mockReturnValue(null),
+}));
+
 vi.mock("../src/shared/job-tracker.js", () => ({
   isJobProcessed: vi.fn().mockResolvedValue(false),
   resetJob: vi.fn().mockResolvedValue(undefined),
