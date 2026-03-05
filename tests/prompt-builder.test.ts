@@ -64,6 +64,38 @@ describe("buildAgentPrompt", () => {
     expect(prompt).toContain("Do NOT refactor unrelated code");
     expect(prompt).toContain("Keep changes as small as possible");
   });
+
+  it("should include image section when images have localPath", () => {
+    const workItem: WorkItemDetails = {
+      ...baseWorkItem,
+      images: [
+        { url: "https://example.com/img1.png", filename: "screenshot.png", localPath: "/tmp/repo/.buginfo/images/inline-0-screenshot.png", source: "inline" },
+        { url: "https://example.com/img2.jpg", filename: "error.jpg", localPath: "/tmp/repo/.buginfo/images/attachment-1-error.jpg", source: "attachment" },
+      ],
+    };
+    const prompt = buildAgentPrompt(workItem);
+    expect(prompt).toContain("## Attached Images");
+    expect(prompt).toContain("/tmp/repo/.buginfo/images/inline-0-screenshot.png");
+    expect(prompt).toContain("(screenshot.png)");
+    expect(prompt).toContain("/tmp/repo/.buginfo/images/attachment-1-error.jpg");
+    expect(prompt).toContain("(error.jpg)");
+  });
+
+  it("should not include image section when no images", () => {
+    const prompt = buildAgentPrompt(baseWorkItem);
+    expect(prompt).not.toContain("## Attached Images");
+  });
+
+  it("should not include image section when images have no localPath", () => {
+    const workItem: WorkItemDetails = {
+      ...baseWorkItem,
+      images: [
+        { url: "https://example.com/img1.png", filename: "screenshot.png", source: "inline" },
+      ],
+    };
+    const prompt = buildAgentPrompt(workItem);
+    expect(prompt).not.toContain("## Attached Images");
+  });
 });
 
 describe("buildRetryPrompt", () => {

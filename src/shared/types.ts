@@ -1,3 +1,10 @@
+export interface ImageAttachment {
+  url: string;
+  filename: string;
+  localPath?: string;
+  source: "inline" | "attachment";
+}
+
 export interface BugFixJob {
   workItemId: number;
   projectName: string;
@@ -18,6 +25,7 @@ export interface WorkItemDetails {
   projectName: string;
   organizationUrl: string;
   areaPath?: string;
+  images?: ImageAttachment[];
 }
 
 export interface AgentResult {

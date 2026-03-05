@@ -1,4 +1,4 @@
-import { WorkItemDetails, PullRequestParams, Repository, Config } from "./types.js";
+import { WorkItemDetails, PullRequestParams, Repository, Config, ImageAttachment } from "./types.js";
 import { withRetry, isRetryableHttpError } from "./retry.js";
 import { createLogger } from "./logger.js";
 
@@ -50,6 +50,49 @@ async function adoFetch(url: string, pat: string, options: RequestInit = {}): Pr
   );
 }
 
+const IMAGE_EXTENSIONS = /\.(png|jpg|jpeg|gif|bmp|webp|svg)$/i;
+
+export function extractImagesFromHtml(html: string): ImageAttachment[] {
+  if (!html) return [];
+  const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  const results: ImageAttachment[] = [];
+  const seenUrls = new Set<string>();
+  let match: RegExpExecArray | null;
+
+  while ((match = imgRegex.exec(html)) !== null) {
+    const url = match[1];
+    if (seenUrls.has(url)) continue;
+
+    // Derive filename from URL query param fileName= or last path segment
+    let filename: string;
+    try {
+      const parsed = new URL(url);
+      filename = parsed.searchParams.get("fileName") ?? parsed.pathname.split("/").pop() ?? "image";
+    } catch {
+      filename = url.split("/").pop()?.split("?")[0] ?? "image";
+    }
+
+    if (!IMAGE_EXTENSIONS.test(filename)) continue;
+
+    seenUrls.add(url);
+    results.push({ url, filename, source: "inline" });
+  }
+
+  return results;
+}
+
+export function extractAttachmentUrls(relations: Record<string, any>[] | undefined): ImageAttachment[] {
+  if (!relations || !Array.isArray(relations)) return [];
+
+  return relations
+    .filter((rel) => rel.rel === "AttachedFile" && IMAGE_EXTENSIONS.test(rel.attributes?.name ?? ""))
+    .map((rel) => ({
+      url: rel.url as string,
+      filename: (rel.attributes?.name ?? "attachment") as string,
+      source: "attachment" as const,
+    }));
+}
+
 export async function getWorkItemDetails(
   workItemId: number,
   projectName: string,
@@ -78,6 +121,25 @@ export async function getWorkItemDetails(
 
   const fields = wiData.fields ?? {};
 
+  // Extract images from raw HTML BEFORE stripping HTML tags
+  const inlineImages = [
+    ...extractImagesFromHtml(fields["System.Description"] ?? ""),
+    ...extractImagesFromHtml(fields["Microsoft.VSTS.TCM.ReproSteps"] ?? ""),
+    ...extractImagesFromHtml(fields["Microsoft.VSTS.TCM.SystemInfo"] ?? ""),
+  ];
+  const attachmentImages = extractAttachmentUrls(wiData.relations);
+
+  // Merge, deduplicate by URL, cap at 10
+  const seenUrls = new Set<string>();
+  const images: ImageAttachment[] = [];
+  for (const img of [...inlineImages, ...attachmentImages]) {
+    if (!seenUrls.has(img.url)) {
+      seenUrls.add(img.url);
+      images.push(img);
+    }
+    if (images.length >= 10) break;
+  }
+
   return {
     id: wiData.id,
     title: fields["System.Title"] ?? "",
@@ -90,6 +152,7 @@ export async function getWorkItemDetails(
     projectName,
     organizationUrl: baseUrl,
     areaPath: fields["System.AreaPath"] ?? undefined,
+    images: images.length > 0 ? images : undefined,
   };
 }
 
@@ -177,4 +240,62 @@ export async function getBuildLog(
   return errors.join("\n") || "Build failed (no detailed error messages available)";
 }
 
-export { stripHtml, buildAuthHeader };
+export async function downloadWorkItemImages(
+  images: ImageAttachment[],
+  workDir: string,
+  pat: string
+): Promise<ImageAttachment[]> {
+  if (!images || images.length === 0) return [];
+
+  const { mkdir, writeFile } = await import("node:fs/promises");
+  const { join } = await import("node:path");
+  const imagesDir = join(workDir, ".buginfo", "images");
+  await mkdir(imagesDir, { recursive: true });
+
+  const MAX_SIZE = 20 * 1024 * 1024; // 20MB
+  const downloaded: ImageAttachment[] = [];
+
+  for (let i = 0; i < images.length; i++) {
+    const img = images[i];
+    try {
+      const response = await fetch(img.url, {
+        headers: { Authorization: buildAuthHeader(pat) },
+      });
+
+      if (!response.ok) {
+        logger.warn(`Failed to download image ${img.filename}: HTTP ${response.status}`, { url: img.url });
+        continue;
+      }
+
+      const contentType = response.headers.get("content-type") ?? "";
+      if (!contentType.startsWith("image/")) {
+        logger.warn(`Skipping non-image content-type for ${img.filename}: ${contentType}`, { url: img.url });
+        continue;
+      }
+
+      const contentLength = Number(response.headers.get("content-length") ?? "0");
+      if (contentLength > MAX_SIZE) {
+        logger.warn(`Skipping oversized image ${img.filename}: ${contentLength} bytes`, { url: img.url });
+        continue;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      if (buffer.length > MAX_SIZE) {
+        logger.warn(`Skipping oversized image ${img.filename}: ${buffer.length} bytes (after download)`, { url: img.url });
+        continue;
+      }
+
+      const localFilename = `${img.source}-${i}-${img.filename}`;
+      const localPath = join(imagesDir, localFilename);
+      await writeFile(localPath, buffer);
+
+      downloaded.push({ ...img, localPath });
+    } catch (error) {
+      logger.warn(`Failed to download image ${img.filename}: ${error}`, { url: img.url });
+    }
+  }
+
+  return downloaded;
+}
+
+export { stripHtml, buildAuthHeader, IMAGE_EXTENSIONS };
