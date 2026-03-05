@@ -1,6 +1,10 @@
 import { fetchDashboard } from "../../lib/api";
 import type { DashboardStats, JobRecord } from "../../lib/types";
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 const POLL_INTERVAL = 5000;
 let lastUpdated = Date.now();
 
@@ -32,7 +36,7 @@ function statusDot(status: string): string {
 }
 
 function modelCell(job: JobRecord): string {
-  const model = job.modelUsed?.replace("claude-", "").replace("-4-6", "") ?? "--";
+  const model = escapeHtml(job.modelUsed?.replace("claude-", "").replace("-4-6", "") ?? "--");
   const badge = job.escalated ? ` <span class="badge-escalated">esc</span>` : "";
   return `${model}${badge}`;
 }
@@ -67,11 +71,11 @@ function updateJobTable(jobs: JobRecord[]): void {
 
   tbody.innerHTML = jobs.map((job) => `
     <tr>
-      <td>${job.workItemId}</td>
-      <td>${statusDot(job.status)} ${job.status}</td>
+      <td>${escapeHtml(String(job.workItemId))}</td>
+      <td>${statusDot(job.status)} ${escapeHtml(job.status)}</td>
       <td>${modelCell(job)}</td>
       <td>${formatCost(job.costUsd)}</td>
-      <td>${job.prId ? `#${job.prId}` : "--"}</td>
+      <td>${job.prId ? `#${escapeHtml(String(job.prId))}` : "--"}</td>
       <td>${formatDuration(job.durationMs)}</td>
       <td>${job.startedAt ? timeAgo(job.startedAt) : "--"}</td>
     </tr>

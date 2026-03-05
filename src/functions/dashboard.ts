@@ -4,14 +4,9 @@ import { createLogger } from "../shared/logger.js";
 import { ensureTable } from "../shared/job-tracker.js";
 import { validateApiKey } from "../shared/auth.js";
 import { JobRecord } from "../shared/types.js";
+import { CORS_HEADERS, corsPreflightResponse } from "../shared/cors.js";
 
 const logger = createLogger("Dashboard");
-
-const CORS_HEADERS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, x-api-key, Authorization",
-};
 
 interface DashboardStats {
   totalJobs: number;
@@ -30,7 +25,7 @@ async function handler(
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   if (request.method === "OPTIONS") {
-    return { status: 204, headers: CORS_HEADERS };
+    return corsPreflightResponse();
   }
 
   logger.info("Dashboard request received");
