@@ -1,0 +1,46 @@
+---
+---
+
+<div class="health-badge" id="health-badge">
+  <span class="health-label text-secondary">System</span>
+  <div class="health-dots" id="health-dots">
+  </div>
+</div>
+
+<style>
+  .health-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .health-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .health-dots {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .health-dots :global(.health-dot) {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    transition: background 0.3s ease;
+  }
+
+  .health-dots :global(.health-dot--pass) {
+    background: var(--accent-green);
+    box-shadow: 0 0 4px var(--accent-green);
+  }
+
+  .health-dots :global(.health-dot--fail) {
+    background: var(--accent-red);
+    box-shadow: 0 0 4px var(--accent-red);
+  }
+</style>

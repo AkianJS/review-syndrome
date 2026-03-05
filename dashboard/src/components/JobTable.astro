@@ -1,0 +1,83 @@
+---
+---
+
+<section class="job-table-wrapper">
+  <h2 class="section-title">Recent Jobs</h2>
+  <div class="table-scroll">
+    <table class="job-table">
+      <thead>
+        <tr>
+          <th>WI #</th>
+          <th>Status</th>
+          <th>Model</th>
+          <th>Cost</th>
+          <th>PR</th>
+          <th>Duration</th>
+          <th>Started</th>
+        </tr>
+      </thead>
+      <tbody id="job-table-body">
+        <tr>
+          <td colspan="7" class="text-secondary" style="text-align:center;padding:2rem;">Loading...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<style>
+  .job-table-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .job-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .job-table th {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .job-table :global(td) {
+    padding: 0.625rem 1rem;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+  }
+
+  .job-table :global(tr:last-child td) {
+    border-bottom: none;
+  }
+
+  .job-table :global(tr:hover td) {
+    background: var(--bg-card-hover);
+  }
+</style>
