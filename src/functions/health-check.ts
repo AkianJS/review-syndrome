@@ -1,6 +1,12 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { validateApiKey } from "../shared/auth.js";
 
+const CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, x-api-key, Authorization",
+};
+
 interface HealthCheckResult {
   status: "healthy" | "unhealthy";
   checks: Record<string, { status: "pass" | "fail"; message?: string }>;
@@ -10,8 +16,12 @@ async function handler(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  if (request.method === "OPTIONS") {
+    return { status: 204, headers: CORS_HEADERS };
+  }
+
   const authResult = validateApiKey(request, "DASHBOARD_API_KEY");
-  if (authResult) return authResult;
+  if (authResult) return { ...authResult, headers: { ...authResult.headers, ...CORS_HEADERS } };
 
   const result: HealthCheckResult = {
     status: "healthy",
@@ -45,13 +55,15 @@ async function handler(
 
   return {
     status: statusCode,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
     body: JSON.stringify(result, null, 2),
   };
 }
 
 app.http("health-check", {
-  methods: ["GET"],
+  methods: ["GET", "OPTIONS"],
   authLevel: "anonymous",
   handler,
 });
+
+export { handler };
