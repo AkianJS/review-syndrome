@@ -45,6 +45,7 @@ export async function runAgent(
         allowDangerouslySkipPermissions: true,
         env: {
           ANTHROPIC_API_KEY: config.anthropicApiKey,
+          PATH: process.env.PATH ?? "",
         },
       },
     })) {

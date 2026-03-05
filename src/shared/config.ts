@@ -22,13 +22,14 @@ export function loadConfig(projectName?: string): Config {
   };
 
   // Apply project-specific overrides if available
+  // Only override env-var values when a project-specific (not globalDefaults) config exists
   if (projectName) {
     const projectConfig = loadProjectConfig(projectName);
     if (projectConfig) {
-      if (projectConfig.defaultBranch) baseConfig.targetBranch = projectConfig.defaultBranch;
-      if (projectConfig.agentModel) baseConfig.agentModel = projectConfig.agentModel;
-      if (projectConfig.maxBudget !== undefined) baseConfig.maxBudgetPerBug = projectConfig.maxBudget;
-      if (projectConfig.maxTurns !== undefined) baseConfig.maxAgentTurns = projectConfig.maxTurns;
+      if (projectConfig.defaultBranch && !process.env["TARGET_BRANCH"]) baseConfig.targetBranch = projectConfig.defaultBranch;
+      if (projectConfig.agentModel && !process.env["AGENT_MODEL"]) baseConfig.agentModel = projectConfig.agentModel;
+      if (projectConfig.maxBudget !== undefined && !process.env["MAX_BUDGET_PER_BUG"]) baseConfig.maxBudgetPerBug = projectConfig.maxBudget;
+      if (projectConfig.maxTurns !== undefined && !process.env["MAX_AGENT_TURNS"]) baseConfig.maxAgentTurns = projectConfig.maxTurns;
       if (projectConfig.repoMapping) baseConfig.repoMapping = projectConfig.repoMapping;
     }
   }

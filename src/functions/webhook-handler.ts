@@ -33,28 +33,34 @@ async function handler(
 
   if (eventType === "workitem.created") {
     // New work item created — only process if it has the ai-fix tag
-    const tags: string = fields["System.Tags"] ?? "";
-    if (!tags.split(";").map((t: string) => t.trim().toLowerCase()).includes("ai-fix")) {
+    const tags = fields["System.Tags"] ?? "";
+    if (!parseTags(tags).includes("ai-fix")) {
       logger.info("Work item created without ai-fix tag, ignoring");
       return { status: 200, body: "Tag ai-fix not present" };
     }
     triggerType = "created";
   } else if (eventType === "workitem.updated") {
     // Updated work item — process if it has the ai-fix tag
-    const tags: string = fields["System.Tags"] ?? resource.revision?.fields?.["System.Tags"] ?? "";
-    if (!tags.split(";").map((t: string) => t.trim().toLowerCase()).includes("ai-fix")) {
+    // For updated events, resource.fields contains {oldValue, newValue} deltas,
+    // while resource.revision.fields contains the full current field values
+    const rawFieldTags = fields["System.Tags"];
+    const tags = resource.revision?.fields?.["System.Tags"]
+      ?? (rawFieldTags && typeof rawFieldTags === "object" ? rawFieldTags.newValue : rawFieldTags)
+      ?? "";
+    if (!parseTags(tags).includes("ai-fix")) {
       logger.info("Work item updated without ai-fix tag, ignoring");
       return { status: 200, body: "Tag ai-fix not present" };
     }
 
     // Check if meaningful fields changed (or tag was just added)
+    // Also check resource.fields which contains the delta for updated events
     const meaningfulFields = [
       "System.Description",
       "Microsoft.VSTS.TCM.ReproSteps",
       "System.Tags",
     ];
     const hasRelevantChange = meaningfulFields.some(
-      (f) => revisedFields[f] !== undefined
+      (f) => revisedFields[f] !== undefined || fields[f] !== undefined
     );
 
     if (!hasRelevantChange) {
@@ -76,7 +82,8 @@ async function handler(
   }
 
   // Extract data
-  const workItemId: number = resource.id ?? resource.workItemId;
+  // For workitem.updated, resource.id is the revision number, not the work item ID
+  const workItemId: number = resource.workItemId ?? resource.revision?.id ?? resource.id;
   const projectName: string =
     fields["System.TeamProject"] ??
     resource.revision?.fields?.["System.TeamProject"] ?? "";
@@ -131,6 +138,16 @@ async function handler(
     status: 200,
     body: JSON.stringify({ message: "Bug fix job enqueued", workItemId, triggerType }),
   };
+}
+
+function parseTags(tags: unknown): string[] {
+  if (Array.isArray(tags)) {
+    return tags.map((t: string) => String(t).trim().toLowerCase());
+  }
+  if (typeof tags === "string") {
+    return tags.split(";").map((t) => t.trim().toLowerCase());
+  }
+  return [];
 }
 
 function extractOrgUrl(resourceUrl: string): string {
