@@ -7,6 +7,7 @@ vi.mock("../src/shared/azure-devops-client.js", () => ({
   getRepositories: vi.fn(),
   createPullRequest: vi.fn(),
   addWorkItemComment: vi.fn(),
+  downloadWorkItemImages: vi.fn(),
 }));
 
 vi.mock("../src/shared/git-operations.js", () => ({
@@ -43,7 +44,7 @@ vi.mock("../src/shared/logger.js", () => ({
 }));
 
 import { processBugFixJob } from "../src/shared/pipeline.js";
-import { getWorkItemDetails, getRepositories, createPullRequest, addWorkItemComment } from "../src/shared/azure-devops-client.js";
+import { getWorkItemDetails, getRepositories, createPullRequest, addWorkItemComment, downloadWorkItemImages } from "../src/shared/azure-devops-client.js";
 import { cloneRepo, sanitizeBranchName, hasChanges, getChangeSummary, createBranchAndCommit, pushBranch, cleanup } from "../src/shared/git-operations.js";
 import { buildAgentPrompt } from "../src/shared/prompt-builder.js";
 import { runAgent } from "../src/shared/agent-runner.js";
@@ -320,6 +321,84 @@ describe("processBugFixJob", () => {
     // Should only be called once — no escalation from Opus
     expect(runAgent).toHaveBeenCalledTimes(1);
     expect(markJobCompleted).toHaveBeenCalledWith(42, "failure");
+  });
+
+  it("should download images when work item has images", async () => {
+    const imagesWorkItem = {
+      ...mockWorkItem,
+      images: [
+        { url: "https://example.com/img1.png", filename: "screenshot.png", source: "inline" as const },
+      ],
+    };
+
+    vi.mocked(getWorkItemDetails).mockResolvedValue(imagesWorkItem);
+    vi.mocked(getRepositories).mockResolvedValue([
+      { id: "repo-1", name: "TestRepo", remoteUrl: "https://example.com", defaultBranch: "main" },
+    ]);
+    vi.mocked(cloneRepo).mockResolvedValue({ workDir: "/tmp/test-dir", git: {} as any });
+    vi.mocked(downloadWorkItemImages).mockResolvedValue([
+      { url: "https://example.com/img1.png", filename: "screenshot.png", localPath: "/tmp/test-dir/.buginfo/images/inline-0-screenshot.png", source: "inline" },
+    ]);
+    vi.mocked(buildAgentPrompt).mockReturnValue("Test prompt");
+    vi.mocked(runAgent).mockResolvedValue({
+      success: true,
+      analysis: "Fixed",
+      costUsd: 0.40,
+      turnsUsed: 10,
+      durationMs: 5000,
+      modelUsed: "claude-sonnet-4-6",
+    });
+    vi.mocked(hasChanges).mockResolvedValue(true);
+    vi.mocked(sanitizeBranchName).mockReturnValue("bugfix/wi-42-login-button-crash");
+    vi.mocked(getChangeSummary).mockResolvedValue("1 file changed");
+    vi.mocked(createBranchAndCommit).mockResolvedValue(undefined);
+    vi.mocked(pushBranch).mockResolvedValue(undefined);
+    vi.mocked(createPullRequest).mockResolvedValue({ pullRequestId: 3, url: "https://example.com/pr/3" });
+    vi.mocked(cleanup).mockResolvedValue(undefined);
+
+    await processBugFixJob(mockJob, mockConfig);
+
+    expect(downloadWorkItemImages).toHaveBeenCalledWith(
+      [{ url: "https://example.com/img1.png", filename: "screenshot.png", source: "inline" }],
+      "/tmp/test-dir",
+      "test-pat"
+    );
+    // buildAgentPrompt should receive the work item with downloaded images (localPath set)
+    expect(buildAgentPrompt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        images: [
+          expect.objectContaining({ localPath: "/tmp/test-dir/.buginfo/images/inline-0-screenshot.png" }),
+        ],
+      })
+    );
+  });
+
+  it("should not call downloadWorkItemImages when work item has no images", async () => {
+    vi.mocked(getWorkItemDetails).mockResolvedValue(mockWorkItem); // no images
+    vi.mocked(getRepositories).mockResolvedValue([
+      { id: "repo-1", name: "TestRepo", remoteUrl: "https://example.com", defaultBranch: "main" },
+    ]);
+    vi.mocked(cloneRepo).mockResolvedValue({ workDir: "/tmp/test-dir", git: {} as any });
+    vi.mocked(buildAgentPrompt).mockReturnValue("Test prompt");
+    vi.mocked(runAgent).mockResolvedValue({
+      success: true,
+      analysis: "Fixed",
+      costUsd: 0.40,
+      turnsUsed: 10,
+      durationMs: 5000,
+      modelUsed: "claude-sonnet-4-6",
+    });
+    vi.mocked(hasChanges).mockResolvedValue(true);
+    vi.mocked(sanitizeBranchName).mockReturnValue("bugfix/wi-42-login-button-crash");
+    vi.mocked(getChangeSummary).mockResolvedValue("1 file changed");
+    vi.mocked(createBranchAndCommit).mockResolvedValue(undefined);
+    vi.mocked(pushBranch).mockResolvedValue(undefined);
+    vi.mocked(createPullRequest).mockResolvedValue({ pullRequestId: 4, url: "https://example.com/pr/4" });
+    vi.mocked(cleanup).mockResolvedValue(undefined);
+
+    await processBugFixJob(mockJob, mockConfig);
+
+    expect(downloadWorkItemImages).not.toHaveBeenCalled();
   });
 
   it("should select repo by area path when repoMapping is configured", async () => {

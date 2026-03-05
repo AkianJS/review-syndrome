@@ -1,4 +1,20 @@
-import { WorkItemDetails } from "./types.js";
+import { WorkItemDetails, ImageAttachment } from "./types.js";
+
+function buildImageSection(images?: ImageAttachment[]): string {
+  const withLocalPath = (images ?? []).filter((img) => img.localPath);
+  if (withLocalPath.length === 0) return "";
+
+  const list = withLocalPath
+    .map((img) => `- \`${img.localPath}\` (${img.filename})`)
+    .join("\n");
+
+  return `
+
+## Attached Images
+
+The following screenshots/images from the work item are available. Use the Read tool to view them for additional context:
+${list}`;
+}
 
 export function buildAgentPrompt(workItem: WorkItemDetails): string {
   const commentsSection =
@@ -32,7 +48,7 @@ ${commentsSection}
 - Follow the existing code style and conventions.
 - Do not modify configuration files, CI/CD pipelines, or infrastructure code.
 - Do not add new dependencies unless absolutely necessary for the fix.
-- Keep changes as small as possible.`;
+- Keep changes as small as possible.${buildImageSection(workItem.images)}`;
 }
 
 export function buildRetryPrompt(

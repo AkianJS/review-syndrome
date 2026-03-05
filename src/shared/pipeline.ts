@@ -1,5 +1,5 @@
 import { BugFixJob, Config, Repository } from "./types.js";
-import { getWorkItemDetails, getRepositories, createPullRequest, addWorkItemComment } from "./azure-devops-client.js";
+import { getWorkItemDetails, getRepositories, createPullRequest, addWorkItemComment, downloadWorkItemImages } from "./azure-devops-client.js";
 import {
   cloneRepo,
   sanitizeBranchName,
@@ -55,6 +55,13 @@ export async function processBugFixJob(
     const cloneResult = await cloneRepo(repo.remoteUrl, config.azureDevOpsPat);
     workDir = cloneResult.workDir;
 
+    // 3a. Download images if present
+    if (workItem.images && workItem.images.length > 0) {
+      logger.info("Downloading work item images", { ...props, step: "downloadImages", count: workItem.images.length });
+      const downloadedImages = await downloadWorkItemImages(workItem.images, workDir, config.azureDevOpsPat);
+      workItem.images = downloadedImages.length > 0 ? downloadedImages : workItem.images;
+    }
+
     // 4. Build prompt
     const prompt = buildAgentPrompt(workItem);
 
@@ -83,7 +90,7 @@ export async function processBugFixJob(
       await safeAddComment(
         job.workItemId,
         job.projectName,
-        `**ReviewSyndrome Agent** analyzed this work item but could not create an automated fix.\n\n**Reason:** ${truncate(agentResult.analysis, 500)}`,
+        `ReviewSyndrome Agent analyzed this work item but could not create an automated fix.\n\nReason:\n${truncate(stripMarkdown(agentResult.analysis), 4000)}`,
         config
       );
       return;
@@ -99,7 +106,7 @@ export async function processBugFixJob(
       await safeAddComment(
         job.workItemId,
         job.projectName,
-        `**ReviewSyndrome Agent** analyzed this work item but determined no code changes were necessary.\n\n**Analysis:** ${truncate(agentResult.analysis, 500)}`,
+        `ReviewSyndrome Agent analyzed this work item but determined no code changes were necessary.\n\nAnalysis:\n${truncate(stripMarkdown(agentResult.analysis), 4000)}`,
         config
       );
       return;
@@ -144,7 +151,7 @@ export async function processBugFixJob(
     await safeAddComment(
       job.workItemId,
       job.projectName,
-      `**ReviewSyndrome Agent** created PR #${prId} for this work item.\n\n**Cost:** ~$${agentResult.costUsd.toFixed(2)} | **Duration:** ${Math.round(durationMs / 1000)}s`,
+      `ReviewSyndrome Agent created PR #${prId} for this work item.\n\nCost: ~$${agentResult.costUsd.toFixed(2)} | Duration: ${Math.round(durationMs / 1000)}s`,
       config
     );
   } catch (error) {
@@ -187,6 +194,26 @@ async function safeAddComment(
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength) + "...";
+}
+
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/^#{1,6}\s+/gm, "")          // headings
+    .replace(/\*\*(.+?)\*\*/g, "$1")       // bold
+    .replace(/\*(.+?)\*/g, "$1")           // italic
+    .replace(/__(.+?)__/g, "$1")           // bold alt
+    .replace(/_(.+?)_/g, "$1")             // italic alt
+    .replace(/~~(.+?)~~/g, "$1")           // strikethrough
+    .replace(/`{3}[\s\S]*?`{3}/g, "")     // fenced code blocks
+    .replace(/`(.+?)`/g, "$1")            // inline code
+    .replace(/^\s*[-*+]\s+/gm, "- ")      // normalize list markers
+    .replace(/^\s*\d+\.\s+/gm, "")        // ordered list numbers
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // links
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1") // images
+    .replace(/^>\s?/gm, "")               // blockquotes
+    .replace(/^---+$/gm, "")              // horizontal rules
+    .replace(/\n{3,}/g, "\n\n")           // collapse excess newlines
+    .trim();
 }
 
 function selectRepository(
