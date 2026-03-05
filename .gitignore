@@ -5,6 +5,7 @@ local.settings.json
 *.js.map
 *.d.ts
 !src/**/*.d.ts
+!dashboard/src/**/*.d.ts
 .funcignore
 .vscode/
 *.tgz

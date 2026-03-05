@@ -1,0 +1,57 @@
+---
+---
+
+<section class="stats-bar">
+  <div class="card stat-card">
+    <span class="stat-label text-secondary">Total Jobs</span>
+    <span class="stat-value mono" id="stat-total">--</span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-label text-secondary">Success Rate</span>
+    <span class="stat-value mono" id="stat-success-rate">--%</span>
+    <span class="stat-sub text-secondary mono" id="stat-success-count"></span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-label text-secondary">Failed</span>
+    <span class="stat-value mono stat-value--failure" id="stat-failure">--</span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-label text-secondary">No Changes</span>
+    <span class="stat-value mono" id="stat-no-changes">--</span>
+  </div>
+</section>
+
+<style>
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+  }
+
+  .stat-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .stat-value--failure {
+    color: var(--accent-red);
+  }
+
+  .stat-sub {
+    font-size: 0.8rem;
+  }
+</style>

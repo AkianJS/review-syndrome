@@ -96,7 +96,7 @@ describe("job-tracker", () => {
   describe("markJobCompleted", () => {
     it("should update entity with success status", async () => {
       mockUpdateEntity.mockResolvedValue({});
-      await markJobCompleted(42, "success", 123);
+      await markJobCompleted(42, "success", { prId: 123 });
       expect(mockUpdateEntity).toHaveBeenCalledWith(
         expect.objectContaining({
           partitionKey: "jobs",
@@ -117,6 +117,45 @@ describe("job-tracker", () => {
         }),
         "Merge"
       );
+    });
+
+    it("should persist cost fields when provided", async () => {
+      mockUpdateEntity.mockResolvedValue({});
+      await markJobCompleted(42, "success", {
+        prId: 99,
+        costUsd: 1.25,
+        durationMs: 30000,
+        modelUsed: "claude-opus-4-6",
+        escalated: true,
+        projectName: "TestProject",
+      });
+      expect(mockUpdateEntity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          partitionKey: "jobs",
+          rowKey: "42",
+          status: "success",
+          prId: 99,
+          costUsd: 1.25,
+          durationMs: 30000,
+          modelUsed: "claude-opus-4-6",
+          escalated: true,
+          projectName: "TestProject",
+        }),
+        "Merge"
+      );
+    });
+
+    it("should persist without optional cost fields", async () => {
+      mockUpdateEntity.mockResolvedValue({});
+      await markJobCompleted(42, "failure", {});
+      const callArgs = mockUpdateEntity.mock.calls[0][0];
+      expect(callArgs).toHaveProperty("status", "failure");
+      expect(callArgs).not.toHaveProperty("prId");
+      expect(callArgs).not.toHaveProperty("costUsd");
+      expect(callArgs).not.toHaveProperty("durationMs");
+      expect(callArgs).not.toHaveProperty("modelUsed");
+      expect(callArgs).not.toHaveProperty("escalated");
+      expect(callArgs).not.toHaveProperty("projectName");
     });
   });
 
@@ -171,6 +210,36 @@ describe("job-tracker", () => {
       mockGetEntity.mockRejectedValue({ statusCode: 404 });
       const record = await getJobRecord(42);
       expect(record).toBeUndefined();
+    });
+
+    it("should return cost fields when present", async () => {
+      mockGetEntity.mockResolvedValue({
+        status: "success",
+        startedAt: "2026-02-27T10:00:00Z",
+        completedAt: "2026-02-27T10:05:00Z",
+        prId: 99,
+        retryCount: 0,
+        costUsd: 1.25,
+        durationMs: 30000,
+        modelUsed: "claude-opus-4-6",
+        escalated: true,
+        projectName: "TestProject",
+      });
+
+      const record = await getJobRecord(42);
+      expect(record).toEqual({
+        workItemId: 42,
+        status: "success",
+        startedAt: "2026-02-27T10:00:00Z",
+        completedAt: "2026-02-27T10:05:00Z",
+        prId: 99,
+        retryCount: 0,
+        costUsd: 1.25,
+        durationMs: 30000,
+        modelUsed: "claude-opus-4-6",
+        escalated: true,
+        projectName: "TestProject",
+      });
     });
   });
 
