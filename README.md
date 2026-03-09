@@ -50,7 +50,10 @@ Create `local.settings.json` in the project root. This is the only configuration
     "TARGET_BRANCH": "main",
     "MAX_BUDGET_PER_BUG": "2.00",
     "MAX_AGENT_TURNS": "50",
-    "AGENT_MODEL": "claude-sonnet-4-6"
+    "AGENT_MODEL": "claude-sonnet-4-6",
+    "WEBHOOK_API_KEY": "",
+    "DASHBOARD_API_KEY": "",
+    "APPLICATIONINSIGHTS_CONNECTION_STRING": ""
   }
 }
 ```
