@@ -1,6 +1,15 @@
 import { TableClient, TableEntity, RestError } from "@azure/data-tables";
 import { JobRecord } from "./types.js";
 
+export interface JobCompletionDetails {
+  prId?: number;
+  costUsd?: number;
+  durationMs?: number;
+  modelUsed?: string;
+  escalated?: boolean;
+  projectName?: string;
+}
+
 const TABLE_NAME = "bugfixjobs";
 
 function getTableClient(): TableClient {
@@ -48,9 +57,10 @@ export async function markJobStarted(workItemId: number): Promise<boolean> {
 export async function markJobCompleted(
   workItemId: number,
   result: "success" | "failure" | "no-changes",
-  prId?: number
+  details: JobCompletionDetails = {}
 ): Promise<void> {
   const client = getTableClient();
+  const { prId, costUsd, durationMs, modelUsed, escalated, projectName } = details;
   await client.updateEntity(
     {
       partitionKey: "jobs",
@@ -58,6 +68,11 @@ export async function markJobCompleted(
       status: result,
       completedAt: new Date().toISOString(),
       ...(prId !== undefined ? { prId } : {}),
+      ...(costUsd !== undefined ? { costUsd } : {}),
+      ...(durationMs !== undefined ? { durationMs } : {}),
+      ...(modelUsed !== undefined ? { modelUsed } : {}),
+      ...(escalated !== undefined ? { escalated } : {}),
+      ...(projectName !== undefined ? { projectName } : {}),
     },
     "Merge"
   );
@@ -84,6 +99,11 @@ export async function getJobRecord(workItemId: number): Promise<JobRecord | unde
       completedAt: entity.completedAt as string | undefined,
       prId: entity.prId as number | undefined,
       retryCount: entity.retryCount as number | undefined,
+      costUsd: entity.costUsd as number | undefined,
+      durationMs: entity.durationMs as number | undefined,
+      modelUsed: entity.modelUsed as string | undefined,
+      escalated: entity.escalated as boolean | undefined,
+      projectName: entity.projectName as string | undefined,
     };
   } catch (err: any) {
     if (err.statusCode === 404) return undefined;

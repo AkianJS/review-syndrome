@@ -127,7 +127,7 @@ describe("processBugFixJob", () => {
     expect(createBranchAndCommit).toHaveBeenCalled();
     expect(pushBranch).toHaveBeenCalled();
     expect(createPullRequest).toHaveBeenCalled();
-    expect(markJobCompleted).toHaveBeenCalledWith(42, "success", 1);
+    expect(markJobCompleted).toHaveBeenCalledWith(42, "success", expect.objectContaining({ prId: 1 }));
     expect(addWorkItemComment).toHaveBeenCalled();
     expect(cleanup).toHaveBeenCalledWith("/tmp/test-dir");
   });
@@ -167,7 +167,11 @@ describe("processBugFixJob", () => {
     expect(createBranchAndCommit).not.toHaveBeenCalled();
     expect(pushBranch).not.toHaveBeenCalled();
     expect(createPullRequest).not.toHaveBeenCalled();
-    expect(markJobCompleted).toHaveBeenCalledWith(42, "no-changes");
+    expect(markJobCompleted).toHaveBeenCalledWith(42, "no-changes", expect.objectContaining({
+      costUsd: 0.10,
+      modelUsed: "claude-sonnet-4-6",
+      projectName: "TestProject",
+    }));
     expect(cleanup).toHaveBeenCalled();
   });
 
@@ -215,7 +219,11 @@ describe("processBugFixJob", () => {
     expect(runAgent).toHaveBeenCalledTimes(2);
     expect(hasChanges).not.toHaveBeenCalled();
     expect(createPullRequest).not.toHaveBeenCalled();
-    expect(markJobCompleted).toHaveBeenCalledWith(42, "failure");
+    expect(markJobCompleted).toHaveBeenCalledWith(42, "failure", expect.objectContaining({
+      costUsd: 1.50,
+      escalated: true,
+      projectName: "TestProject",
+    }));
     expect(cleanup).toHaveBeenCalled();
   });
 
@@ -294,7 +302,12 @@ describe("processBugFixJob", () => {
       expect.objectContaining({ agentModel: "claude-opus-4-6" })
     );
     expect(createPullRequest).toHaveBeenCalled();
-    expect(markJobCompleted).toHaveBeenCalledWith(42, "success", 5);
+    expect(markJobCompleted).toHaveBeenCalledWith(42, "success", expect.objectContaining({
+      prId: 5,
+      costUsd: 1.10,
+      escalated: true,
+      projectName: "TestProject",
+    }));
   });
 
   it("should not escalate when already using Opus", async () => {
@@ -320,7 +333,11 @@ describe("processBugFixJob", () => {
 
     // Should only be called once — no escalation from Opus
     expect(runAgent).toHaveBeenCalledTimes(1);
-    expect(markJobCompleted).toHaveBeenCalledWith(42, "failure");
+    expect(markJobCompleted).toHaveBeenCalledWith(42, "failure", expect.objectContaining({
+      costUsd: 1.00,
+      modelUsed: "claude-opus-4-6",
+      projectName: "TestProject",
+    }));
   });
 
   it("should download images when work item has images", async () => {

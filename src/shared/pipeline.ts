@@ -86,7 +86,13 @@ export async function processBugFixJob(
     if (!agentResult.success) {
       logger.warn("Agent could not fix bug", { ...props, step: "agentFailed", analysis: agentResult.analysis, escalated: agentResult.escalated });
       logger.trackEvent("bug_processing_completed", { ...props, outcome: "agent_failed", escalated: agentResult.escalated });
-      await markJobCompleted(job.workItemId, "failure");
+      await markJobCompleted(job.workItemId, "failure", {
+        costUsd: agentResult.costUsd,
+        durationMs: agentResult.durationMs,
+        modelUsed: agentResult.modelUsed,
+        escalated: agentResult.escalated,
+        projectName: job.projectName,
+      });
 
       // Comment on work item
       await safeAddComment(
@@ -108,7 +114,13 @@ export async function processBugFixJob(
     if (!changed) {
       logger.info("Agent made no file changes", { ...props, step: "noChanges" });
       logger.trackEvent("agent_no_changes", props);
-      await markJobCompleted(job.workItemId, "no-changes");
+      await markJobCompleted(job.workItemId, "no-changes", {
+        costUsd: agentResult.costUsd,
+        durationMs: agentResult.durationMs,
+        modelUsed: agentResult.modelUsed,
+        escalated: agentResult.escalated,
+        projectName: job.projectName,
+      });
 
       await safeAddComment(
         job.workItemId,
@@ -152,7 +164,14 @@ export async function processBugFixJob(
     logger.trackEvent("pr_created", { ...props, prId, costUsd: agentResult.costUsd });
     logger.trackMetric("processing_duration_ms", durationMs, props);
 
-    await markJobCompleted(job.workItemId, "success", prId);
+    await markJobCompleted(job.workItemId, "success", {
+      prId,
+      costUsd: agentResult.costUsd,
+      durationMs: agentResult.durationMs,
+      modelUsed: agentResult.modelUsed,
+      escalated: agentResult.escalated,
+      projectName: job.projectName,
+    });
 
     // Comment on work item
     await safeAddComment(
@@ -171,7 +190,7 @@ export async function processBugFixJob(
     logger.trackEvent("bug_processing_failed", { ...props, error: String(error) });
 
     try {
-      await markJobCompleted(job.workItemId, "failure");
+      await markJobCompleted(job.workItemId, "failure", { projectName: job.projectName });
     } catch {
       // Best-effort status update
     }

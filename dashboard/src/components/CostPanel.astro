@@ -1,0 +1,46 @@
+---
+---
+
+<section class="cost-panel">
+  <div class="card cost-card">
+    <span class="cost-label text-secondary">Total Spend</span>
+    <span class="cost-value mono" id="cost-total">$--.--</span>
+    <span class="cost-sub text-secondary" id="cost-escalations"></span>
+  </div>
+  <div class="card cost-card">
+    <span class="cost-label text-secondary">Avg Cost / Job</span>
+    <span class="cost-value mono" id="cost-avg">$--.--</span>
+  </div>
+</section>
+
+<style>
+  .cost-panel {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .cost-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .cost-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .cost-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--accent-blue);
+  }
+
+  .cost-sub {
+    font-size: 0.8rem;
+  }
+</style>

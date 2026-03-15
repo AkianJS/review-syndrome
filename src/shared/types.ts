@@ -45,6 +45,11 @@ export interface JobRecord {
   completedAt?: string;
   prId?: number;
   retryCount?: number;
+  costUsd?: number;
+  durationMs?: number;
+  modelUsed?: string;
+  escalated?: boolean;
+  projectName?: string;
 }
 
 export interface ProjectConfig {
